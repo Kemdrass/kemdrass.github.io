@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prodigy House break hack</title>
+    <style>
+        canvas {
+            border: 2px solid black;
+            display: block;
+            margin: auto;
+            background-color: black;
+        }
+        #timerContainer {
+            width: 330px;
+            height: 20px;
+            margin: auto;
+            position: relative;
+        }
+        #timerBar {
+            width: 100%;
+            height: 100%;
+            background-color: gray;
+            transition: width 1s linear;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="330" height="330"></canvas>
+    <div id="timerContainer">
+        <div id="timerBar"></div>
+    </div>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const timerBar = document.getElementById("timerBar");
+        const gridSize = 11;
+        const cellSize = 30;
+        let timeLeft, interval;
+        let whiteDot, greenDot, yellowDots, redDots, selectedDot;
+
+        function resetGame() {
+            whiteDot = { x: 5, y: 5 };
+            greenDot = { x: 6, y: 5 };
+            yellowDots = [];
+            redDots = [];
+            selectedDot = null;
+            timeLeft = 60;
+            timerBar.style.width = "100%";
+            clearInterval(interval);
+            startTimer();
+            
+            function getRandomEmptyCell(avoidGrouping = false) {
+                let x, y, attempts = 0;
+                do {
+                    x = Math.floor(Math.random() * gridSize);
+                    y = Math.floor(Math.random() * gridSize);
+                    attempts++;
+                } while ((x === whiteDot.x && y === whiteDot.y) || (x === greenDot.x && y === greenDot.y) ||
+                         yellowDots.some(dot => dot.x === x && dot.y === y) ||
+                         redDots.some(dot => dot.x === x && dot.y === y) ||
+                         (avoidGrouping && isTooCloseToRed(x, y) && attempts < 20));
+                return { x, y };
+            }
+
+            function isTooCloseToRed(x, y) {
+                return redDots.some(dot => Math.abs(dot.x - x) <= 1 && Math.abs(dot.y - y) <= 1);
+            }
+
+            for (let i = 0; i < 8; i++) yellowDots.push(getRandomEmptyCell());
+            for (let i = 0; i < 5; i++) redDots.push(getRandomEmptyCell(true));
+            drawGame();
+        }
+
+        function startTimer() {
+            interval = setInterval(() => {
+                timeLeft--;
+                timerBar.style.width = (timeLeft / 60) * 100 + "%";
+                if (timeLeft <= 0) {
+                    clearInterval(interval);
+                    alert("Time is up");
+                    resetGame();
+                }
+            }, 1000);
+        }
+
+        function drawGrid() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            for (let x = 0; x < gridSize; x++) {
+                for (let y = 0; y < gridSize; y++) {
+                    ctx.strokeStyle = "gray";
+                    ctx.strokeRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                }
+            }
+        }
+        
+        function drawDot(x, y, color) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x * cellSize + cellSize / 2, y * cellSize + cellSize / 2, 10, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        function drawGame() {
+            drawGrid();
+            drawDot(whiteDot.x, whiteDot.y, "white");
+            yellowDots.forEach(dot => drawDot(dot.x, dot.y, selectedDot === dot ? "blue" : "yellow"));
+            redDots.forEach(dot => drawDot(dot.x, dot.y, "red"));
+            drawDot(greenDot.x, greenDot.y, "green");
+        }
+        
+        canvas.addEventListener("mousedown", (event) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left;
+            const mouseY = event.clientY - rect.top;
+            const clickedX = Math.floor(mouseX / cellSize);
+            const clickedY = Math.floor(mouseY / cellSize);
+            
+            if (selectedDot) {
+                if (isValidMove(selectedDot, clickedX, clickedY)) {
+                    selectedDot.x = clickedX;
+                    selectedDot.y = clickedY;
+                    checkForRemoval();
+                }
+                selectedDot = null;
+            } else {
+                if (greenDot.x === clickedX && greenDot.y === clickedY) {
+                    selectedDot = greenDot;
+                } else {
+                    yellowDots.forEach(dot => {
+                        if (dot.x === clickedX && dot.y === clickedY && isNextToGreen(dot)) {
+                            selectedDot = dot;
+                        }
+                    });
+                }
+            }
+            drawGame();
+        });
+        
+        function isValidMove(dot, newX, newY) {
+            if (newX < 0 || newX >= gridSize || newY < 0 || newY >= gridSize) return false;
+            if (yellowDots.some(d => d.x === newX && d.y === newY) || redDots.some(d => d.x === newX && d.y === newY)) return false;
+            if (dot !== greenDot && !isNextToGreen({ x: newX, y: newY })) return false;
+            if (newX === greenDot.x && newY === greenDot.y) return false;
+            if (dot === greenDot && newX === whiteDot.x && newY === whiteDot.y) return false;
+            return true;
+        }
+
+        function isNextToGreen(dot) {
+            return Math.abs(dot.x - greenDot.x) <= 1 && Math.abs(dot.y - greenDot.y) <= 1;
+        }
+        
+        function checkForRemoval() {
+            yellowDots = yellowDots.filter(dot => dot.x !== whiteDot.x || dot.y !== whiteDot.y);
+            if (yellowDots.length === 0) {
+                alert("You won");
+                resetGame();
+            }
+        }
+        
+        resetGame();
+    </script>
+</body>
+</html>
